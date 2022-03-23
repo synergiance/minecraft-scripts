@@ -767,18 +767,19 @@ function processTurbine(key)
   if tSettings[key] == nil then tSettings[key] = tSettings[0] end
   if not (tSettings[key]["manual"]) then
     local turbine = peripheral.wrap(key)
+    local tank = turbine.fluidTank()
     turbine.setActive(true)
-    if batPercent[key] > 80  then turbine.setInductorEngaged(false) end
+    if batPercent[key] > 80  then turbine.setCoilEngaged(false) end
     if tRotorSpeed[key] < tSettings[key]["lowspeed"] then
-      turbine.setInductorEngaged(false)
+      turbine.setCoilEngaged(false)
       tSpeedingUp[key] = 1
-      turbine.setFluidFlowRateMax(turbine.getFluidFlowRateMaxMax())
+      tank.setNominalFlowRate(tank.flowRateLimit())
     end
     if tRotorSpeed[key] > tSettings[key]["highspeed"] then tSpeedingUp[key] = 0 end
-    if (tRotorSpeed[key] > tSettings[key]["lowspeed"]) and (batPercent[key] < 20) then turbine.setInductorEngaged(true) end
+    if (tRotorSpeed[key] > tSettings[key]["lowspeed"]) and (batPercent[key] < 20) then turbine.setCoilEngaged(true) end
     if (tSpeedingUp[key] == 0) then
-      if tRotorSpeed[key] < tSettings[key]["normalspeed"] then turbine.setFluidFlowRateMax(tFlowRate[key] + tSettings[key]["normalspeed"] - tRotorSpeed[key]) end
-      if tRotorSpeed[key] > tSettings[key]["normalspeed"] then turbine.setFluidFlowRateMax(tFlowRate[key] + tSettings[key]["normalspeed"] - tRotorSpeed[key]) end
+      if tRotorSpeed[key] < tSettings[key]["normalspeed"] then tank.setNominalFlowRate(tFlowRate[key] + tSettings[key]["normalspeed"] - tRotorSpeed[key]) end
+      if tRotorSpeed[key] > tSettings[key]["normalspeed"] then tank.setNominalFlowRate(tFlowRate[key] + tSettings[key]["normalspeed"] - tRotorSpeed[key]) end
     end
   end
 end
