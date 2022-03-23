@@ -124,27 +124,27 @@ end
 
 function scanPeripherals()
   -- print("Searching for peripherals...")
-  perilist = peripheral.getNames()
+  peripheralList = peripheral.getNames()
   -- m, r, t = nil, nil, nil
   mb, rb, tb = {}, {}, {}
   if term.isColor() then
     term.setTextColor(colors.lime)
   end
-  for i = 1, #perilist do
-    if (peripheral.getType(perilist[i]) == "monitor") then
-      table.insert(mb, perilist[i])
+  for i = 1, #peripheralList do
+    if (peripheral.getType(peripheralList[i]) == "monitor") then
+      table.insert(mb, peripheralList[i])
     end
-    if (peripheral.getType(perilist[i]) == "BigReactors-Reactor") then
-      table.insert(rb, perilist[i])
+    if (peripheral.getType(peripheralList[i]) == "BigReactors-Reactor") then
+      table.insert(rb, peripheralList[i])
     end
-    if (peripheral.getType(perilist[i]) == "BiggerReactors_Reactor") then
-      table.insert(rb, perilist[i])
+    if (peripheral.getType(peripheralList[i]) == "BiggerReactors_Reactor") then
+      table.insert(rb, peripheralList[i])
     end
-    if (peripheral.getType(perilist[i]) == "BigReactors-Turbine") then
-      table.insert(tb, perilist[i])
+    if (peripheral.getType(peripheralList[i]) == "BigReactors-Turbine") then
+      table.insert(tb, peripheralList[i])
     end
-    if (peripheral.getType(perilist[i]) == "BiggerReactors_Turbine") then
-      table.insert(tb, perilist[i])
+    if (peripheral.getType(peripheralList[i]) == "BiggerReactors_Turbine") then
+      table.insert(tb, peripheralList[i])
     end
   end
   for _,vb in pairs(mb) do
@@ -269,11 +269,11 @@ function centerText(text, width)
   var = width - string.len(text)
   str = ""
   
-  for i = 0, var / 2 - 1 do
+  for _ = 0, var / 2 - 1 do
     str = str.." "
   end
   str = str..text
-  for i = var / 2, var do
+  for _ = var / 2, var do
     str = str.." "
   end
   return str
@@ -310,7 +310,9 @@ end
 
 function powerFormat(num)
   local formatted = tostring(num)
-  if num < 100 then
+  if num == nil then
+    formatted = formatted.." RF/t"
+  elseif num < 100 then
     if string.match(formatted, "%.%d%d") then
       formatted = string.match(formatted, "^(%d+%.%d%d)")
     end
@@ -333,7 +335,9 @@ end
 
 function formatFlowRate(num)
   local formatted
-  if num < 10000 then
+  if num == nil then
+    formatted = "nil mB/t"
+  elseif num < 10000 then
     formatted = tostring(num).." mB/t"
   else
     num = num / 1000
@@ -409,7 +413,7 @@ function displayError(message)
       end
       for y = 1, h do
         mon.setCursorPos(1,y)
-        for x = 1, w do
+        for _ = 1, w do
           mon.write(" ")
         end
       end
@@ -466,7 +470,7 @@ function integrityCheck()
 		end
       end
     end
-    for k,v in pairs(t) do
+    for _,_ in pairs(t) do
       numTurbines = numTurbines + 1
       steamPresent = true
       turbinePresent = true
@@ -834,8 +838,8 @@ function drawText(x,y,str,monitor,fgColor,bgColor)
   local retX, retY = x, y
   if not (str == nil) then
     local mon = peripheral.wrap(monitor)
-    local restoreBackgroundColor = nil
-    local restoreTextColor = nil
+    local restoreBackgroundColor
+    local restoreTextColor
     local restoreX,restoreY = mon.getCursorPos()
     if not (fgColor == nil) then
       restoreTextColor = mon.getTextColor()
@@ -1101,14 +1105,14 @@ end
 
 function drawPage(x,y,w,h,monitor,newPage)
   local realPage = false
-  for k,v in pairs(r) do
+  for _,v in pairs(r) do
     if newPage == v then
       realPage = true
       drawReactorPage(x,y,w,h,monitor,newPage)
       break
     end
   end
-  for k,v in pairs(t) do
+  for _,v in pairs(t) do
     if newPage == v then
       realPage = true
       drawTurbinePage(x,y,w,h,monitor,newPage)
@@ -1194,7 +1198,7 @@ function drawBigMain(x,y,w,h,monitor)
   end
   local l = math.floor(w / 2 + 0.5) - (topRowNum * 4)
   local drawWait = mTopScrollPos[monitor]
-  for k,v in pairs(r) do
+  for _,v in pairs(r) do
     if drawWait <= 0 then
       if l + 8 > w - topArrowSize then break end
       drawReactor(x + l, top, 7, height, monitor, v)
@@ -1218,7 +1222,7 @@ function drawBigMain(x,y,w,h,monitor)
     table.insert(mButtonLocations[monitor], { 1, math.floor(top + height / 2 - 1.5), bottomArrowSize, 3, "bottomLeftArrow" })
     table.insert(mButtonLocations[monitor], { w - bottomArrowSize + 1, math.floor(top + height / 2 - 1.5), bottomArrowSize, 3, "bottomRightArrow" })
   end
-  for k,v in pairs(t) do
+  for _,v in pairs(t) do
     if drawWait <= 0 then
       if l + 8 > w - bottomArrowSize then break end
       drawTurbine(x + l, top, 7, height, monitor, v)
@@ -1494,7 +1498,7 @@ end
 
 function display()
   monConnected = false
-  for k,v in pairs(m) do
+  for _,v in pairs(m) do
     if mSettings[v] == nil then
       mSettings[v] = {}
       mSettings[v]["page"] = "main"
@@ -1515,10 +1519,10 @@ function changePage(monitor, newPage)
   local realPage = false
   if newPage == "back" then newPage = "main" end
   if newPage == "main" then realPage = true end
-  for k,v in pairs(r) do
+  for _,v in pairs(r) do
     if newPage == v then realPage = true end
   end
-  for k,v in pairs(t) do
+  for _,v in pairs(t) do
     if newPage == v then realPage = true end
   end
   if realPage then
@@ -1534,9 +1538,9 @@ end
 
 -- Each entry is { x, y, w, h, "string" }
 function verifyTouch(monitor, x, y)
-  local command = nil
+  local command
   if not (mButtonLocations[monitor] == nil) then
-    for k,v in pairs(mButtonLocations[monitor]) do
+    for _,v in pairs(mButtonLocations[monitor]) do
       if (x >= v[1]) and (x < v[1] + v[3]) then
         if (y >= v[2]) and (y < v[2] + v[4]) then
           command = v[5]
@@ -1575,21 +1579,21 @@ while keepRunning do
   -- os.sleep(1)
   
   timerCode = os.startTimer(1)
-  sentinal = true
-  while sentinal do
+  sentinel = true
+  while sentinel do
     event, code, x, y = os.pullEvent()
     if event == "monitor_touch" then
       local command = verifyTouch(code, x, y)
       if command == "exit" then
         keepRunning = false
-        sentinal = false
+        sentinel = false
       elseif (command == "next") or (command == "prev") then
         -- code
       else
         changePage(code, command)
       end
     elseif (event == "timer") and (code == timerCode) then
-      sentinal = false
+      sentinel = false
     end
   end
 end
@@ -1597,6 +1601,6 @@ end
 setTurbine(false)
 setReactor(false)
 
-for k,v in pairs(m) do
+for _,v in pairs(m) do
   peripheral.call(v,"clear")
 end
