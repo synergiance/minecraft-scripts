@@ -39,7 +39,8 @@ local m, r, t = {}, {}, {}
 local keepRunning = true
 local firstRun = true
 local timerCode
-local monFileName = "monsettings"
+local monFileName = "monsettings" -- File to store monitor view state in
+local prefsFileName = "reactorprefs" -- File to save preferences in
 
 -- Reactor Variables
 local numReactors = 0
@@ -52,6 +53,7 @@ local rFuelTemp = {}
 local rCaseTemp = {}
 local rRodNum = {}
 local rRodLevel = {}
+local rMode = {} -- Current reactor mode, eg. idle, active, measuring
 
 -- Steam Reactor Variables
 local numSteamReactors = 0
@@ -64,6 +66,7 @@ local tInput = {}
 local tOutput = {}
 local tCapacity = {}
 local tSpeedingUp = {}
+local tMode = {} -- Current turbine mode, eg. spinning up, engaged
 
 -- Turbine Variables
 local numTurbines = 0
@@ -144,9 +147,9 @@ function scanPeripherals()
       table.insert(tb, perilist[i])
     end
   end
-  for kb,vb in pairs(mb) do
+  for _,vb in pairs(mb) do
     found = false
-    for k,v in pairs(m) do
+    for _,v in pairs(m) do
       if v == vb then found = true end
     end
     if (not found) then
@@ -154,9 +157,9 @@ function scanPeripherals()
       table.insert(m,vb)
     end
   end
-  for kb,vb in pairs(rb) do
+  for _,vb in pairs(rb) do
     found = false
-    for k,v in pairs(r) do
+    for _,v in pairs(r) do
       if v == vb then found = true end
     end
     if (not found) then
@@ -164,9 +167,9 @@ function scanPeripherals()
       table.insert(r,vb)
     end
   end
-  for kb,vb in pairs(tb) do
+  for _,vb in pairs(tb) do
     found = false
-    for k,v in pairs(t) do
+    for _,v in pairs(t) do
       if v == vb then found = true end
     end
     if (not found) then
@@ -183,7 +186,7 @@ function scanPeripherals()
     for k,v in pairs(m) do
       found = false
       contains = true
-      for kb,vb in pairs(mb) do
+      for _,vb in pairs(mb) do
         if vb == v then found = true end
       end
       if (not found) then
@@ -201,7 +204,7 @@ function scanPeripherals()
     for k,v in pairs(r) do
       found = false
       contains = true
-      for kb,vb in pairs(rb) do
+      for _,vb in pairs(rb) do
         if vb == v then found = true end
       end
       if (not found) then
@@ -219,7 +222,7 @@ function scanPeripherals()
     for k,v in pairs(t) do
       found = false
       contains = true
-      for kb,vb in pairs(tb) do
+      for _,vb in pairs(tb) do
         if vb == v then found = true end
       end
       if (not found) then
@@ -238,7 +241,7 @@ function scanPeripherals()
 end
 
 function setTurbine(status)
-  for k,v in pairs(t) do
+  for _,v in pairs(t) do
     local turbine = peripheral.wrap(v)
     if not (turbine == nil) then
       if (status == true) or (status == false) then
@@ -249,7 +252,7 @@ function setTurbine(status)
 end
 
 function setReactor(status)
-  for k,v in pairs(r) do
+  for _,v in pairs(r) do
     local reactor = peripheral.wrap(v)
     if not (reactor == nil) then
       if (status == true) or (status == false) then
@@ -378,7 +381,7 @@ end
 
 function displayError(message)
   exists = false
-  for k,v in pairs(m) do
+  for _,v in pairs(m) do
     local mon = peripheral.wrap(v)
     mon.setTextScale(1)
     w, h = mon.getSize()
@@ -451,7 +454,7 @@ function integrityCheck()
     numReactors = 0
     numTurbines = 0
     numSteamReactors = 0
-    for k,v in pairs(r) do
+    for _,v in pairs(r) do
       numReactors = numReactors + 1
       reactorPresent = true
       local reactor = peripheral.wrap(v)
@@ -510,7 +513,7 @@ function checkReactor()
   local battery
   local coolantTank
   
-  for k,v in pairs(r) do
+  for _,v in pairs(r) do
     local reactor = peripheral.wrap(v)
     if reactor then
       -- Get Reactor Statistics
@@ -576,7 +579,7 @@ function checkTurbine()
   tOutput[0] = 0
   tCapacity[0] = 0
   
-  for k,v in pairs(t) do
+  for _,v in pairs(t) do
     local turbine = peripheral.wrap(v)
     if turbine then
       -- Calculate Turbine Statistics
@@ -711,7 +714,7 @@ function processReactor(key)
     local rodLevels = rRodLevel[key]
     local rodsChanged = false
     local tempPercent = 0
-    if reactor and (rFuelTemp[key] < 1980) then
+    if reactor and steamReactor[key] then
       rodLevels = 100 - ((coldPercent[key] * (100 - hotPercent[key])) / 100)
       rodsChanged = true
       if hotPercent[key] < 80 then reactor.setActive(true) end
@@ -760,13 +763,13 @@ end
 function process()
   resetCalculations()
   turbineExists = false
-  for k,v in pairs(t) do
+  for _,v in pairs(t) do
     turbineExists = true
     calcTurbine(v)
     processTurbine(v)
   end
   reactorExists = false
-  for k,v in pairs(r) do
+  for _,v in pairs(r) do
     reactorExists = true
     calcReactor(v)
     processReactor(v)
@@ -801,7 +804,7 @@ function drawRect(x,y,w,h,monitor,color,outline)
     if (not (outline == nil)) and (w >= 3) and (h >= 3) then
       mon.setBackgroundColor(outline)
       mon.setCursorPos(x,y)
-      for c=1,w do mon.write(" ") end
+      for _=1,w do mon.write(" ") end
       for c=1,h-2 do
         mon.setCursorPos(x,y+c)
         mon.write(" ")
@@ -809,7 +812,7 @@ function drawRect(x,y,w,h,monitor,color,outline)
         mon.write(" ")
       end
       mon.setCursorPos(x,y+h-1)
-      for c=1,w do mon.write(" ") end
+      for _=1,w do mon.write(" ") end
       x = x + 1
       y = y + 1
       w = w - 2
@@ -818,7 +821,7 @@ function drawRect(x,y,w,h,monitor,color,outline)
     mon.setBackgroundColor(color)
     for c=y,y+h-1 do
       mon.setCursorPos(x,c)
-      for d=1,w do mon.write(" ") end
+      for _=1,w do mon.write(" ") end
     end
     -- Set everything back the way we found it
     mon.setBackgroundColor(restoreBackgroundColor)
@@ -1060,7 +1063,7 @@ function drawReactorPage(x,y,w,h,monitor,reactor)
     table.insert(statList, {"Fuel Temp", trimDecimal(rFuelTemp[reactor], 1).." C", nil, nil})
     table.insert(statList, {"Case Temp", trimDecimal(rCaseTemp[reactor], 1).." C", nil, nil})
     -- Draw list
-    for key, data in pairs(statList) do
+    for _, data in pairs(statList) do
       nX, nY = drawText(x + 9, y + n, data[1]..": ", monitor, nil, nil)
       drawText(nX, nY, data[2], monitor, data[3], data[4])
       n = n + 1
@@ -1083,7 +1086,7 @@ function drawTurbinePage(x,y,w,h,monitor,turbine)
     table.insert(statList, {"Rotor", trimDecimal(tRotorSpeed[turbine], 0).." RPM", nil, nil})
     table.insert(statList, {"Inductor", tInductorEngaged[turbine], nil, nil})
     -- Draw list
-    for key, data in pairs(statList) do
+    for _, data in pairs(statList) do
       nX, nY = drawText(x + 9, y + n, data[1]..": ", monitor, nil, nil)
       drawText(nX, nY, data[2], monitor, data[3], data[4])
       n = n + 1
