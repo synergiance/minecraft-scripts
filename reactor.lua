@@ -48,6 +48,7 @@ local rSettings = {}
 local rActive = {}
 local rConnected = {}
 local rStoredEnergy = {}
+local rMaxEnergy = {}
 local rEnergyRate = {}
 local rFuelTemp = {}
 local rCaseTemp = {}
@@ -74,12 +75,16 @@ local tSettings = {}
 local tActive = {}
 local tConnected = {}
 local tStoredEnergy = {}
+local tMaxEnergy = {}
 local tEnergyRate = {}
 local tFlowRate = {}
 local tFlowRateCap = {}
 local tFlowRateMax = {}
+local tHotLiquid = {}
+local tColdLiquid = {}
 local tInductorEngaged = {}
 local tRotorSpeed = {}
+local tRotorEfficiency = {}
 
 -- Calculated Variables
 local batPercent = {}
@@ -509,6 +514,7 @@ function checkReactor()
   
   rStoredEnergy[0] = 0
   rEnergyRate[0] = 0
+  rMaxEnergy[0] = 0
   rColdLiquid[0] = 0
   rColdLiquidMax[0] = 0
   rHotLiquid[0] = 0
@@ -530,12 +536,13 @@ function checkReactor()
 
       if (not steamReactor[v]) then
         -- Energy Reactor things
-		battery = reactor.battery()
+		    battery = reactor.battery()
         rStoredEnergy[v] = battery.stored()
+        rMaxEnergy[v] = battery.capacity()
         rEnergyRate[v] = battery.producedLastTick()
       else
         -- Turbine Reactor things
-		coolantTank = reactor.coolantTank()
+		    coolantTank = reactor.coolantTank()
         rColdLiquid[v] = coolantTank.coldFluidAmount()
         rColdLiquidMax[v] = coolantTank.capacity()
         rHotLiquid[v] = coolantTank.hotFluidAmount()
@@ -552,6 +559,7 @@ function checkReactor()
         rHotLiquid[0] = rHotLiquid[0] + rHotLiquid[v]
         rHotLiquidMax[0] = rHotLiquidMax[0] + rHotLiquidMax[v]
       else
+        rMaxEnergy[0] = rMaxEnergy[0] + rMaxEnergy[v]
         rStoredEnergy[0] = rStoredEnergy[0] + rStoredEnergy[v]
         rEnergyRate[0] = rEnergyRate[0] + rEnergyRate[v]
       end
@@ -578,6 +586,7 @@ function checkTurbine()
   
   tStoredEnergy[0] = 0
   tEnergyRate[0] = 0
+  tMaxEnergy[0] = 0
   tFlowRate[0] = 0
   tInput[0] = 0
   tOutput[0] = 0
@@ -587,24 +596,34 @@ function checkTurbine()
     local turbine = peripheral.wrap(v)
     if turbine then
       -- Calculate Turbine Statistics
-      tActive[v] = turbine.getActive()
-      tConnected[v] = turbine.getConnected()
-      tStoredEnergy[v] = turbine.getEnergyStored()
-      tEnergyRate[v] = turbine.getEnergyProducedLastTick()
-      tFlowRate[v] = turbine.getFluidFlowRate()
-      tFlowRateCap[v] = turbine.getFluidFlowRateMax()
-      tFlowRateMax[v] = turbine.getFluidFlowRateMaxMax()
-      tInductorEngaged[v] = turbine.getInductorEngaged()
-      tInput[v] = turbine.getInputAmount()
-      tOutput[v] = turbine.getOutputAmount()
-      tCapacity[v] = turbine.getFluidAmountMax()
-      tRotorSpeed[v] = turbine.getRotorSpeed()
+      tActive[v] = turbine.active()
+      tConnected[v] = turbine.connected()
+      local battery = turbine.battery()
+      tStoredEnergy[v] = battery.stored()
+      tMaxEnergy[v] = battery.capacity()
+      tEnergyRate[v] = battery.producedLastTick()
+      local tank = turbine.fluidTank()
+      tFlowRate[v] = tank.flowLastTick()
+      tFlowRateCap[v] = tank.nominalFlowRate()
+      tFlowRateMax[v] = tank.flowRateLimit()
+      local input = tank.input()
+      tInput[v] = input.amount()
+      tCapacity[v] = input.maxAmount()
+      tHotLiquid[v] = input.name()
+      local output = tank.output()
+      tOutput[v] = output.amount()
+      tColdLiquid[v] = output.name()
+      local rotor = turbine.rotor()
+      tRotorSpeed[v] = rotor.RPM()
+      tRotorEfficiency[v] = rotor.efficiencyLastTick()
+      tInductorEngaged[v] = turbine.coilEngaged()
       
       if tStoredEnergy[v] == nil then print("Please disconnect and connect "..v) end
       
       -- Add to Global Statistics
       tStoredEnergy[0] = tStoredEnergy[0] + tStoredEnergy[v]
       tEnergyRate[0] = tEnergyRate[0] + tEnergyRate[v]
+      tMaxEnergy[0] = tMaxEnergy[0] + tMaxEnergy[v]
       tFlowRate[0] = tFlowRate[0] + tFlowRate[v]
       tInput[0] = tInput[0] + tInput[v]
       tOutput[0] = tOutput[0] + tOutput[v]
@@ -639,13 +658,13 @@ function calcReactor(key)
       coldPercent[key] = (rColdLiquid[key] / rColdLiquidMax[key]) * 100
       coolantString[key] = calcCoolant(coldPercent[key])
     else
-      batPercent[key] = rStoredEnergy[key] / 100000
+      batPercent[key] = rStoredEnergy[key] / rMaxEnergy[key]
     end
   end
 end
 
 function calcTurbine(key)
-  batPercent[key] = tStoredEnergy[key] / 10000
+  batPercent[key] = tStoredEnergy[key] / tMaxEnergy[key]
   inputPercent[key] = (tInput[key] / tCapacity[key]) * 100
   outputPercent[key] = (tOutput[key] / tCapacity[key]) * 100
   flowString[key] = formatFlowRate(tFlowRate[key])
