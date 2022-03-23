@@ -643,7 +643,7 @@ function calcCoolant(percent)
 end
 
 function calcGlobals()
-  batPercent[0] = (tStoredEnergy[0] + rStoredEnergy[0]) / ((10000 * numTurbines) + (100000 * (numReactors - numSteamReactors)))
+  batPercent[0] = (tStoredEnergy[0] + rStoredEnergy[0]) / (tMaxEnergy[0] + rMaxEnergy[0])
 end
 
 function calcStrings(key, energyRate)
@@ -798,6 +798,7 @@ function process()
     calcReactor(v)
     processReactor(v)
   end
+  -- TODO: Rework this
   if steamReactor[0] then
     if (not turbineExists) then
       calcDeadTurbine()
@@ -1071,7 +1072,8 @@ function drawReactorPage(x,y,w,h,monitor,reactor)
   local pageType = pageTyper(w,h)
   local statList = {}
   calcStrings(reactor, rEnergyRate[reactor])
-  if pageType == "normal" then
+  -- TODO: Make better tall and huge layouts
+  if (pageType == "normal") or (pageType == "tall") or (pageType == "huge") then
     drawReactor(x + 1, y + 1, 7, h - 2, monitor, reactor)
     drawText(x + 9, y + 1, centerText("Reactor "..trimFrom(reactor, "_"), w - 10), monitor, nil, nil)
     -- Compile list
@@ -1099,7 +1101,8 @@ function drawTurbinePage(x,y,w,h,monitor,turbine)
   local pageType = pageTyper(w,h)
   local statList = {}
   calcStrings(turbine, tEnergyRate[turbine])
-  if pageType == "normal" then
+  -- TODO: Make better tall and huge layouts
+  if (pageType == "normal") or (pageType == "tall") or (pageType == "huge") then
     drawTurbine(x + 1, y + 1, 7, h - 2, monitor, turbine)
     drawText(x + 9, y + 1, centerText("Turbine "..trimFrom(turbine, "_"), w - 10), monitor, nil, nil)
     -- Compile list
