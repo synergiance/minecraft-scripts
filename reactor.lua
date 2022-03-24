@@ -679,7 +679,7 @@ function calcNormal()
   inputPercent[0] = (tInput[0] / tCapacity[0]) * 100
   outputPercent[0] = (tOutput[0] / tCapacity[0]) * 100
   flowString[0] = formatFlowRate(tFlowRate[0])
-  coolantString[0] = calcCoolant(inputPercent[0])
+  coolantString[0] = calcCoolant(coldPercent[0])
 end
 
 function calcNoTurbine()
@@ -715,7 +715,7 @@ function calcDeadReactor()
   inputPercent[0] = (tInput[0] / tCapacity[0]) * 100
   outputPercent[0] = (tOutput[0] / tCapacity[0]) * 100
   flowString[0] = formatFlowRate(rEnergyRate[0])
-  coolantString[0] = calcCoolant(0)
+  coolantString[0] = calcCoolant(outputPercent[0])
 end
 
 function resetCalculations()
