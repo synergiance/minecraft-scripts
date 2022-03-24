@@ -643,7 +643,7 @@ function calcCoolant(percent)
 end
 
 function calcGlobals()
-  batPercent[0] = (tStoredEnergy[0] + rStoredEnergy[0]) / (tMaxEnergy[0] + rMaxEnergy[0])
+  batPercent[0] = (tStoredEnergy[0] + rStoredEnergy[0]) / (tMaxEnergy[0] + rMaxEnergy[0]) * 100
 end
 
 function calcStrings(key, energyRate)
@@ -658,64 +658,61 @@ function calcReactor(key)
       coldPercent[key] = (rColdLiquid[key] / rColdLiquidMax[key]) * 100
       coolantString[key] = calcCoolant(coldPercent[key])
     else
-      batPercent[key] = rStoredEnergy[key] / rMaxEnergy[key]
+      batPercent[key] = rStoredEnergy[key] / rMaxEnergy[key] * 100
     end
   end
 end
 
 function calcTurbine(key)
-  batPercent[key] = tStoredEnergy[key] / tMaxEnergy[key]
+  batPercent[key] = tStoredEnergy[key] / tMaxEnergy[key] * 100
   inputPercent[key] = (tInput[key] / tCapacity[key]) * 100
   outputPercent[key] = (tOutput[key] / tCapacity[key]) * 100
   flowString[key] = formatFlowRate(tFlowRate[key])
 end
 
-function calcNormal()
+function calcReactorTurbine()
   calcGlobals()
-  batString[0] = percentFormat(batPercent[0])
-  energyString[0] = powerFormat(tEnergyRate[0] + rEnergyRate[0])
-  hotPercent[0] = (rHotLiquid[0] / rHotLiquidMax[0]) * 100
-  coldPercent[0] = (rColdLiquid[0] / rColdLiquidMax[0]) * 100
-  inputPercent[0] = (tInput[0] / tCapacity[0]) * 100
-  outputPercent[0] = (tOutput[0] / tCapacity[0]) * 100
-  flowString[0] = formatFlowRate(tFlowRate[0])
-  coolantString[0] = calcCoolant(coldPercent[0])
-end
-
-function calcNoTurbine()
-  calcGlobals()
-  batString[0] = percentFormat(batPercent[0])
-  energyString[0] = powerFormat(rEnergyRate[0])
-  hotPercent[0] = (rHotLiquid[0] / rHotLiquidMax[0]) * 100
-  coldPercent[0] = (rColdLiquid[0] / rColdLiquidMax[0]) * 100
-  inputPercent[0] = 0
-  outputPercent[0] = 0
-  flowString[0] = "--"
-  coolantString[0] = "--"
-end
-
-function calcDeadTurbine()
-  calcGlobals()
-  batString[0] = "--"
-  energyString[0] = "--"
-  hotPercent[0] = (rHotLiquid[0] / rHotLiquidMax[0]) * 100
-  coldPercent[0] = (rColdLiquid[0] / rColdLiquidMax[0]) * 100
-  inputPercent[0] = 0
-  outputPercent[0] = 0
-  flowString[0] = formatFlowRate(0)
-  coolantString[0] = calcCoolant(coldPercent[0])
-end
-
-function calcDeadReactor()
-  calcGlobals()
-  batString[0] = percentFormat(batPercent[0])
-  energyString[0] = powerFormat(tEnergyRate[0])
-  hotPercent[0] = 0
-  coldPercent[0] = 0
-  inputPercent[0] = (tInput[0] / tCapacity[0]) * 100
-  outputPercent[0] = (tOutput[0] / tCapacity[0]) * 100
-  flowString[0] = formatFlowRate(rEnergyRate[0])
-  coolantString[0] = calcCoolant(outputPercent[0])
+  local hasSteamReactor = (numSteamReactors > 0)
+  local hasNormalReactor = (numReactors - numSteamReactors > 0)
+  local hasTurbine = (numTurbines > 0)
+  if (hasTurbine or hasNormalReactor) then
+    batString[0] = percentFormat(batPercent[0])
+  else
+    batString[0] = "--"
+  end
+  local energyRate
+  if hasTurbine then energyRate = tEnergyRate[0] end
+  if hasNormalReactor then
+    if (energyRate == nil) then energyRate = 0 end
+    energyRate = energyRate + rEnergyRate[0]
+  end
+  if (energyRate == nil) then
+    energyString[0] = "--"
+  else
+    energyString[0] = powerFormat(energyRate)
+  end
+  if hasTurbine then
+    inputPercent[0] = (tInput[0] / tCapacity[0]) * 100
+    outputPercent[0] = (tOutput[0] / tCapacity[0]) * 100
+    flowString[0] = formatFlowRate(tFlowRate[0])
+  else
+    inputPercent[0] = 0
+    outputPercent[0] = 0
+    flowString[0] = "--"
+  end
+  if hasSteamReactor then
+    hotPercent[0] = (rHotLiquid[0] / rHotLiquidMax[0]) * 100
+    coldPercent[0] = (rColdLiquid[0] / rColdLiquidMax[0]) * 100
+    coolantString[0] = calcCoolant(coldPercent[0])
+  else
+    hotPercent[0] = 0
+    coldPercent[0] = 0
+    if hasTurbine then
+      coolantString[0] = calcCoolant(outputPercent[0])
+    else
+      coolantString = "--"
+    end
+  end
 end
 
 function resetCalculations()
@@ -798,20 +795,7 @@ function process()
     calcReactor(v)
     processReactor(v)
   end
-  -- TODO: Rework this
-  if steamReactor[0] then
-    if (not turbineExists) then
-      calcDeadTurbine()
-    else
-      if reactorExists then
-        calcNormal()
-      else
-        calcDeadReactor()
-      end
-    end
-  else
-    calcNoTurbine()
-  end
+  calcReactorTurbine()
 end
 
 function drawRect(x,y,w,h,monitor,color,outline)
