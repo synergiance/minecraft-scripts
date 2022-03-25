@@ -1,8 +1,9 @@
--- Filename: reactor
+-- Filename: update
 -- Author: Synergiance
--- Version: 1.0.0
+-- Version: 1.0.1
 
-local url = "https://raw.githubusercontent.com/synergiance/minecraft-scripts/main/reactor.lua"
+local branch = "main"
+local url = "https://raw.githubusercontent.com/synergiance/minecraft-scripts/"..branch.."/reactor.lua"
 local response = http.get(url)
 if response then
   local r = response.readAll()

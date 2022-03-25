@@ -796,6 +796,7 @@ function processReactor(key)
     if reactor and steamReactor[key] then
       local maxPercent = coldPercent[key] + hotPercent[key]
       local inverseRodLevel = 100.0 * coldPercent[key] / maxPercent
+      inverseRodLevel = inverseRodLevel * inverseRodLevel * 0.01
       rodLevels = 100.0 - inverseRodLevel * safetyMultiplier
       -- TODO: Add Turbine integration to help with managing turbine speed
     else
@@ -807,6 +808,7 @@ function processReactor(key)
         inverseRodLevel = 100.0
       else
         inverseRodLevel = 100.0 * inverseLerp(bDefaultMin, bDefaultMax, batPercent[key])
+        inverseRodLevel = inverseRodLevel * inverseRodLevel * 0.01
       end
       rodLevels = 100.0 - inverseRodLevel * safetyMultiplier
     end
