@@ -761,7 +761,7 @@ function calcReactorTurbine()
     if hasTurbine then
       coolantString[0] = calcCoolant(outputPercent[0])
     else
-      coolantString = "--"
+      coolantString[0] = "--"
     end
   end
 end
