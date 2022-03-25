@@ -41,6 +41,7 @@ local firstRun = true
 local timerCode
 local monFileName = "monsettings" -- File to store monitor view state in
 local prefsFileName = "reactorprefs" -- File to save preferences in
+local calibrationFileName = "calibrationdata" -- Calibration data cache
 
 -- Reactor Variables
 local numReactors = 0
@@ -54,7 +55,6 @@ local rFuelTemp = {}
 local rCaseTemp = {}
 local rRodNum = {}
 local rRodLevel = {}
-local rMode = {} -- Current reactor mode, eg. idle, active, measuring
 
 -- Steam Reactor Variables
 local numSteamReactors = 0
@@ -67,7 +67,6 @@ local tInput = {}
 local tOutput = {}
 local tCapacity = {}
 local tSpeedingUp = {}
-local tMode = {} -- Current turbine mode, eg. spinning up, engaged
 
 -- Turbine Variables
 local numTurbines = 0
@@ -105,12 +104,27 @@ local mBottomScrollPos = {}
 local steamReactor = {}
 local mButtonLocations = {}
 
+-- Runtime variables
+local rMode = {} -- Current reactor mode, eg. idle, active, measuring
+local rMeasurePoint = {} -- Point at which a reactor measurement started
+local tMode = {} -- Current turbine mode, eg. spinning up, engaged
+local tMeasurePoint = {} -- Point at which a turbine measurement started
+
+-- Calibration variables
+local calibrationData = {} -- Calibration data
+
 -- Static Values
 local mWidgetMinWidth = 21
 local mWidgetMinHeight = 14
-local tDefaultLowSpeed = 1780
-local tDefaultHighSpeed = 1820
-local tDefaultNormalSpeed = 1800
+local tDefaultLowSpeed = 1780.0
+local tDefaultHighSpeed = 1820.0
+local tDefaultNormalSpeed = 1800.0
+local rDefaultManagedMode = true
+local rDefaultTempTarget = 1700.0
+local rSafetyTemp = 1000.0
+local rSafetyMargin = 800.0
+local bDefaultMax = 90
+local bDefaultMin = 10
 
 function saveMonTable()
   local file = fs.open(monFileName,"w")
@@ -124,6 +138,21 @@ function loadMonTable()
     local data = file.readAll()
     file.close()
     mSettings = textutils.unserialize(data)
+  end
+end
+
+function saveCalibrationData()
+  local file = fs.open(calibrationFileName, "w")
+  file.write(textutils.serialize(calibrationData))
+  file.close()
+end
+
+function loadCalibrationData()
+  if fs.exists(calibrationFileName) then
+    local file = fs.open(calibrationFileName, "r")
+    local data = file.readAll()
+    file.close()
+    calibrationData = textutils.unserialize(data)
   end
 end
 
@@ -265,6 +294,28 @@ function setReactor(status)
       end
     end
   end
+end
+
+-- General Use Functions
+
+---lerp
+---performs a linear interpolation between a and b according to t
+---@param a number
+---@param b number
+---@param t number
+---@return number
+function lerp(a,b,t)
+  return (1.0-t)*a+1.0*t*b
+end
+
+---inverseLerp
+---derives a number in a range between a and b
+---@param a number
+---@param b number
+---@param t number
+---@return number
+function inverseLerp(a,b,t)
+  return (t - a) / (b - a * 1.0)
 end
 
 function centerText(text, width)
@@ -729,33 +780,40 @@ end
 
 function processReactor(key)
   if rSettings[key] == nil then rSettings[key] = rSettings[0] end
+  if rMode[key] == nil then rMode[key] = "init" end
+  if rMeasurePoint[key] == nil then rMeasurePoint[key] = -1 end
   if not (rSettings[key]["manual"]) then
     local reactor = peripheral.wrap(key)
     local rodLevels = rRodLevel[key]
-    local rodsChanged = false
-    local tempPercent = 0
-    if reactor and steamReactor[key] then
-      rodLevels = 100 - ((coldPercent[key] * (100 - hotPercent[key])) / 100)
-      rodsChanged = true
-      if hotPercent[key] < 80 then reactor.setActive(true) end
-      if coldPercent[key] > 90 then reactor.setActive(true) end
-      -- if tSpeedingUp > 0 then rodLevels = 0 end
-    else
-      if batPercent[key] > 99 then
-        reactor.setActive(false)
+    local safetyMultiplier = 1.0
+    if (rFuelTemp[key] > rSafetyTemp) then
+      if (rFuelTemp[key] > rSafetyTemp + rSafetyMargin) then
+        safetyMultiplier = 0.0
       else
-        rodLevels = batPercent[key]
-        rodsChanged = true
+        safetyMultiplier = (rFuelTemp[key] - rSafetyTemp) / rSafetyMargin
       end
-      if batPercent[key] < 90 then reactor.setActive(true) end
     end
-    
-    if rFuelTemp[key] > 1980 then
-      reactor.setActive(false)
-    elseif (rFuelTemp[key] > 1780) and rodsChanged then
-      tempPercent = 100 - ((rFuelTemp[key] - 1780) / 2)
-      rodLevels = 100 - ((100 - rodLevels) * tempPercent / 100)
+    if reactor and steamReactor[key] then
+      local maxPercent = coldPercent[key] + hotPercent[key]
+      local inverseRodLevel = 100.0 * coldPercent[key] / maxPercent
+      rodLevels = 100.0 - inverseRodLevel * safetyMultiplier
+      -- TODO: Add Turbine integration to help with managing turbine speed
+    else
+      -- TODO: Add configurable values
+      local inverseRodLevel = 0.0
+      if batPercent[key] > bDefaultMax then
+        inverseRodLevel = 0.0
+      elseif batPercent[key] < bDefaultMin then
+        inverseRodLevel = 100.0
+      else
+        inverseRodLevel = 100.0 * inverseLerp(bDefaultMin, bDefaultMax, batPercent[key])
+      end
+      rodLevels = 100.0 - inverseRodLevel * safetyMultiplier
     end
+
+    local reactorShouldBeActive = (rodLevels <= 99)
+    if reactorShouldBeActive ~= reactor.active then reactor.setActive(reactorShouldBeActive) end
+
     reactor.setAllControlRodLevels(rodLevels)
   end
 end
@@ -1561,16 +1619,23 @@ end
 -- MAIN REACTOR EXECUTION BEGINS --
 
 loadMonTable()
+loadCalibrationData()
 if tSettings[0] == nil then
   tSettings[0] = {}
   tSettings[0]["lowspeed"] = tDefaultLowSpeed
   tSettings[0]["highspeed"] = tDefaultHighSpeed
   tSettings[0]["normalspeed"] = tDefaultNormalSpeed
   tSettings[0]["manual"] = false
+  tSettings[0]["max_power"] = bDefaultMax
+  tSettings[0]["min_power"] = bDefaultMin
 end
 if rSettings[0] == nil then
   rSettings[0] = {}
   rSettings[0]["manual"] = false
+  rSettings[0]["target_temp"] = rDefaultTempTarget
+  rSettings[0]["fuel_rod_level"] = 100.0
+  rSettings[0]["max_power"] = bDefaultMax
+  rSettings[0]["min_power"] = bDefaultMin
 end
 
 while keepRunning do
