@@ -1,6 +1,6 @@
 -- Filename: reactor
 -- Author: Synergiance
--- Version: 0.2.3
+-- Version: 0.3.0
 -- You MAY use this code in your own minecraft world
 -- You MAY change the code to suit your needs
 -- You MAY submit bug reports to me
